@@ -1,0 +1,10 @@
+-Q Core DOMLCore
+Core/Syntax.v
+Core/Context.v
+Core/Substitution.v
+Core/Typing.v
+Core/Operational.v
+Core/Automation.v
+Core/Lemmas.v
+Core/Metatheory.v
+Core/DOMLCore.v
