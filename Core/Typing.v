@@ -1,6 +1,9 @@
 From Stdlib Require Import Arith.PeanoNat.
 From Stdlib Require Import Strings.String.
+From Stdlib Require Import ZArith.ZArith.
 From DOMLCore Require Import Syntax Context Substitution.
+
+Open Scope Z_scope.
 
 Inductive value : tm -> Prop :=
 | V_Sort : forall s, value (tSort s)
@@ -23,7 +26,106 @@ Inductive value : tm -> Prop :=
 | V_Refl : forall v, value v -> value (tRefl v).
 
 Inductive defeq : tm -> tm -> Prop :=
-| DE_Refl : forall T, defeq T T.
+| DE_Refl : forall T, defeq T T
+| DE_Sym : forall T U, defeq T U -> defeq U T
+| DE_Trans : forall T U V, defeq T U -> defeq U V -> defeq T V
+| DE_LetBeta : forall x v e,
+    value v ->
+    defeq (tLet x v e) (subst x v e)
+| DE_Let : forall x e1 e1' e2 e2',
+    defeq e1 e1' ->
+    defeq e2 e2' ->
+    defeq (tLet x e1 e2) (tLet x e1' e2')
+| DE_Beta : forall x T e v,
+    value v ->
+    defeq (tApp (tLam x T e) v) (subst x v e)
+| DE_FstPair : forall v1 v2,
+    value v1 ->
+    value v2 ->
+    defeq (tFst (tPair v1 v2)) v1
+| DE_SndPair : forall v1 v2,
+    value v1 ->
+    value v2 ->
+    defeq (tSnd (tPair v1 v2)) v2
+| DE_CaseInl : forall U v x el y er,
+    value v ->
+    defeq (tCase (tInl U v) x el y er) (subst x v el)
+| DE_CaseInr : forall T v x el y er,
+    value v ->
+    defeq (tCase (tInr T v) x el y er) (subst y v er)
+| DE_PlusInts : forall z1 z2,
+    defeq (tPlus (tIntLit z1) (tIntLit z2)) (tIntLit (z1 + z2))
+| DE_MinusInts : forall z1 z2,
+    defeq (tMinus (tIntLit z1) (tIntLit (z2))) (tIntLit (z1 - z2))
+| DE_App : forall e1 e1' e2 e2',
+    defeq e1 e1' ->
+    defeq e2 e2' ->
+    defeq (tApp e1 e2) (tApp e1' e2')
+| DE_Pi : forall x T T' U U',
+    defeq T T' ->
+    defeq U U' ->
+    defeq (tPi x T U) (tPi x T' U')
+| DE_Lam : forall x T T' e e',
+    defeq T T' ->
+    defeq e e' ->
+    defeq (tLam x T e) (tLam x T' e')
+| DE_Sigma : forall x T T' U U',
+    defeq T T' ->
+    defeq U U' ->
+    defeq (tSigma x T U) (tSigma x T' U')
+| DE_Sum : forall T T' U U',
+    defeq T T' ->
+    defeq U U' ->
+    defeq (tSum T U) (tSum T' U')
+| DE_Eq : forall T T' e1 e1' e2 e2',
+    defeq T T' ->
+    defeq e1 e1' ->
+    defeq e2 e2' ->
+    defeq (tEq T e1 e2) (tEq T' e1' e2')
+| DE_Fst : forall e e',
+    defeq e e' ->
+    defeq (tFst e) (tFst e')
+| DE_Snd : forall e e',
+    defeq e e' ->
+    defeq (tSnd e) (tSnd e')
+| DE_Pair : forall e1 e1' e2 e2',
+    defeq e1 e1' ->
+    defeq e2 e2' ->
+    defeq (tPair e1 e2) (tPair e1' e2')
+| DE_Inl : forall U U' e e',
+    defeq U U' ->
+    defeq e e' ->
+    defeq (tInl U e) (tInl U' e')
+| DE_Inr : forall T T' e e',
+    defeq T T' ->
+    defeq e e' ->
+    defeq (tInr T e) (tInr T' e')
+| DE_Case : forall e e' x el el' y er er',
+    defeq e e' ->
+    defeq el el' ->
+    defeq er er' ->
+    defeq (tCase e x el y er) (tCase e' x el' y er')
+| DE_ReflTm : forall e e',
+    defeq e e' ->
+    defeq (tRefl e) (tRefl e')
+| DE_EqElim : forall P P' e e' u u' p p' q q',
+    defeq P P' ->
+    defeq e e' ->
+    defeq u u' ->
+    defeq p p' ->
+    defeq q q' ->
+    defeq (tEqElim P e u p q) (tEqElim P' e' u' p' q')
+| DE_EqElimRefl : forall P e q,
+    value e ->
+    defeq (tEqElim P e e (tRefl e) q) q
+| DE_Plus : forall e1 e1' e2 e2',
+    defeq e1 e1' ->
+    defeq e2 e2' ->
+    defeq (tPlus e1 e2) (tPlus e1' e2')
+| DE_Minus : forall e1 e1' e2 e2',
+    defeq e1 e1' ->
+    defeq e2 e2' ->
+    defeq (tMinus e1 e2) (tMinus e1' e2').
 
 Inductive has_type : dom_context -> const_context -> context -> tm -> tm -> Prop :=
 | T_Sort : forall Delta Omega Gamma s,
@@ -135,7 +237,21 @@ Inductive has_type : dom_context -> const_context -> context -> tm -> tm -> Prop
 | T_Minus : forall Delta Omega Gamma e1 e2,
     has_type Delta Omega Gamma e1 tInt ->
     has_type Delta Omega Gamma e2 tInt ->
-    has_type Delta Omega Gamma (tMinus e1 e2) tInt.
+    has_type Delta Omega Gamma (tMinus e1 e2) tInt
+| T_Conv : forall Delta Omega Gamma e T U,
+    has_type Delta Omega Gamma e T ->
+    defeq T U ->
+    has_type Delta Omega Gamma e U.
 
-Hint Constructors value defeq has_type : core.
+Hint Constructors value : core.
+Hint Resolve
+  DE_Refl DE_LetBeta DE_Beta DE_FstPair DE_SndPair DE_CaseInl
+  DE_Let DE_CaseInr DE_PlusInts DE_MinusInts DE_App DE_Pi DE_Lam DE_Sigma DE_Sum
+  DE_Eq DE_Fst DE_Snd DE_Pair DE_Inl DE_Inr DE_Case DE_ReflTm
+  DE_EqElim DE_EqElimRefl DE_Plus DE_Minus : core.
+Hint Resolve
+  T_Sort T_Bool T_Int T_Unit T_Empty T_True T_False T_IntLit T_UnitLit
+  T_Var T_Const T_Let T_Pi T_Lam T_App T_Sigma T_Pair T_Fst T_Snd
+  T_Sum T_Inl T_Inr T_Case T_Eq T_Refl T_EqElim T_DomainType
+  T_IntroDom T_Plus T_Minus : core.
 

@@ -5,6 +5,8 @@ Import ListNotations.
 
 Theorem preservation :
   forall Delta e e' T,
+    closed e ->
+    closed T ->
     has_type Delta [] [] e T ->
     step e e' ->
     exists T',
@@ -12,10 +14,12 @@ Theorem preservation :
       defeq T T'.
 Proof.
   (**
-    Standard induction on the reduction derivation.  The beta and let cases
-    use [substitution_preserves_typing]; projections use [canonical_sigma];
-    case reductions use [canonical_sum].  Arithmetic cases use
-    [canonical_int].
+    Direct branch proof currently needs strengthening:
+    - closedness inversion/propagation for each term constructor;
+    - context trimming for shadowed binders in the named-variable substitution
+      lemma;
+    - exact preservation lemmas for congruence positions, plus defeq only in
+      beta/projection/case/arithmetic result-type changes.
    *)
 Admitted.
 
