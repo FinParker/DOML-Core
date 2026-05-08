@@ -7,14 +7,11 @@ Open Scope Z_scope.
 
 (**
   Syntax of the DOML-Core proof kernel.
-
-  Surface sets, enums, tree syntax, state tests, and customization syntax are
-  elaborated away before entering this core.  NodeState is represented by the
-  ordinary sum encoding [T + (Unit + Unit)] and is not an extra primitive.
  *)
 
 Definition var := string.
 Definition dom_name := string.
+Definition const_name := string.
 
 Inductive state : Type :=
 | Required
@@ -32,6 +29,7 @@ Inductive tm : Type :=
 | tIntLit : Z -> tm
 | tUnitLit : tm
 | tVar : var -> tm
+| tConst : const_name -> tm
 | tLet : var -> tm -> tm -> tm
 | tPi : var -> tm -> tm -> tm
 | tLam : var -> tm -> tm -> tm
@@ -46,8 +44,7 @@ Inductive tm : Type :=
 | tCase : tm -> var -> tm -> var -> tm -> tm
 | tEq : tm -> tm -> tm -> tm
 | tRefl : tm -> tm
-| tDom : dom_name -> tm
-| tIntroDom : dom_name -> tm -> tm -> tm
+| tEqElim : tm -> tm -> tm -> tm -> tm -> tm
 | tPlus : tm -> tm -> tm
 | tMinus : tm -> tm -> tm.
 
@@ -69,6 +66,7 @@ Record domain_entry : Type := {
 
 Definition context := list (var * tm).
 Definition dom_context := list (dom_name * domain_entry).
+Definition const_context := list (const_name * tm).
 
 (**
   [elab_tree] is the Core type generated from a normalized field signature.
@@ -77,4 +75,12 @@ Definition dom_context := list (dom_name * domain_entry).
   Surface tree algorithm.
  *)
 Parameter elab_tree : child_sig -> tm.
+
+Definition domain_type (ent : domain_entry) : tm :=
+  let a := "_args"%string in
+  tSigma a (elab_tree (de_tree ent))
+    (tEq tBool (tApp (de_constraint ent) (tVar a)) tTrue).
+
+Definition intro_dom (args proof : tm) : tm :=
+  tPair args proof.
 

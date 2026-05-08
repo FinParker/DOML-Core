@@ -56,6 +56,19 @@ Inductive step : tm -> tm -> Prop :=
 | ST_CaseInr : forall T v x el y er,
     value v ->
     step (tCase (tInr T v) x el y er) (subst y v er)
+| ST_EqElimProof : forall P e e' p p' q,
+    step p p' ->
+    step (tEqElim P e e' p q) (tEqElim P e e' p' q)
+| ST_EqElimBody : forall P e e' p q q',
+    value p ->
+    step q q' ->
+    step (tEqElim P e e' p q) (tEqElim P e e' p q')
+| ST_EqElimRefl : forall P e q,
+    value e ->
+    step (tEqElim P e e (tRefl e) q) q
+| ST_Refl : forall e e',
+    step e e' ->
+    step (tRefl e) (tRefl e')
 | ST_Plus1 : forall e1 e1' e2,
     step e1 e1' ->
     step (tPlus e1 e2) (tPlus e1' e2)

@@ -51,3 +51,5 @@ Makefile.conf
 _opam/
 
 .vscode/
+
+thesis.typ

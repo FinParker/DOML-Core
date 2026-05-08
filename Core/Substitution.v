@@ -13,6 +13,7 @@ Fixpoint subst (x : var) (s : tm) (e : tm) : tm :=
   | tIntLit z => tIntLit z
   | tUnitLit => tUnitLit
   | tVar y => if String.eqb x y then s else tVar y
+  | tConst c => tConst c
   | tLet y e1 e2 =>
       tLet y (subst x s e1)
         (if String.eqb x y then e2 else subst x s e2)
@@ -38,8 +39,9 @@ Fixpoint subst (x : var) (s : tm) (e : tm) : tm :=
         z (if String.eqb x z then er else subst x s er)
   | tEq T e1 e2 => tEq (subst x s T) (subst x s e1) (subst x s e2)
   | tRefl e1 => tRefl (subst x s e1)
-  | tDom d => tDom d
-  | tIntroDom d args proof => tIntroDom d (subst x s args) (subst x s proof)
+  | tEqElim P e1 e2 p q =>
+      tEqElim (subst x s P) (subst x s e1) (subst x s e2)
+        (subst x s p) (subst x s q)
   | tPlus e1 e2 => tPlus (subst x s e1) (subst x s e2)
   | tMinus e1 e2 => tMinus (subst x s e1) (subst x s e2)
   end.
