@@ -1,6 +1,8 @@
 From Stdlib Require Import Strings.String.
 From DOMLCore Require Import Syntax.
 
+(* Substitution is a function that replaces all occurrences of a variable `x` in an expression `e` with a given term `s`. *)
+(* that is, e[x := s] *)
 Fixpoint subst (x : var) (s : tm) (e : tm) : tm :=
   match e with
   | tSort n => tSort n

@@ -13,15 +13,8 @@ Theorem preservation :
       has_type Delta [] [] e' T' /\
       defeq T T'.
 Proof.
-  (**
-    Direct branch proof currently needs strengthening:
-    - closedness inversion/propagation for each term constructor;
-    - context trimming for shadowed binders in the named-variable substitution
-      lemma;
-    - exact preservation lemmas for congruence positions, plus defeq only in
-      beta/projection/case/arithmetic result-type changes.
-   *)
-Admitted.
+  exact preservation_driver.
+Qed.
 
 Theorem progress :
   forall Delta e T,

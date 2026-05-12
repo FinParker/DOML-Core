@@ -1,10 +1,17 @@
 # DOML-Core Proof Kernel
 
-注意，`coqc`编译器已经升级命名为`rocq`
-
 ## Structure
 
-
+Core
+- Syntax.v
+- Context.v
+- Substitution.v
+- Typing.v
+- Operational.v
+- Automation.v
+- Lemmas.v
+- Metatheory.v
+- DOMLCore.v
 
 ## Setup
 
@@ -34,7 +41,7 @@ opam repo add rocq-released https://rocq-prover.org/opam/released
 opam pin add rocq-core 9.1.0
 opam pin add rocq-prover 9.0.0
 opam update
-opam install vsrocq-language-server.2.3.4 # for VsRocq Extension
+opam install vsrocq-language-server.2.3.3 # for VsRocq Extension
 ```
 
 3. start rocq env
@@ -106,7 +113,7 @@ rocq compile -Q Core DOMLCore Core/DOMLCore.v
 
 ## Compile on Linux
 
-```
+```sh
 ./run_make.sh
 ./clean_all.sh
 ```

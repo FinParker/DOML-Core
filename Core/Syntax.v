@@ -6,7 +6,7 @@ Import ListNotations.
 Open Scope Z_scope.
 
 (**
-  Syntax of the DOML-Core proof kernel.
+  Syntax of the DOML-Core.
  *)
 
 Definition var := string.
