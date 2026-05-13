@@ -1674,6 +1674,17 @@ Lemma preservation_congruence_cases :
 Proof.
 Admitted.
 
+Lemma closed_domain_type_ent :
+  forall Delta ent d s,
+    lookup d Delta = Some ent ->
+    has_type Delta [] [] (domain_type ent) (tSort s) ->
+    closed (de_constraint ent).
+Proof.
+  (* The type domain_type ent is closed since it types in the empty context.
+     By inverting the closedness of `tSigma "_args" ...`, we can deduce that its
+     body is closed except for "_args", hence de_constraint ent must be entirely closed. *)
+Admitted.
+
 Lemma preservation_elimination_redexes :
   forall Delta e e' T,
     closed e ->
@@ -1685,7 +1696,43 @@ Lemma preservation_elimination_redexes :
       has_type Delta [] [] e' T' /\
       defeq T T'.
 Proof.
-Admitted.
+  intros Delta e e' T Hce Hct HT Hstep Hred.
+  inversion Hred; subst.
+  - (* fst (v1, v2) *)
+    inversion HT; subst.
+    match goal with
+    | [ H : has_type _ _ _ (tPair _ _ ) _ |- _ ] => inversion H; subst
+    end.
+    + (* T_Pair *) eapply preservation_rebuild_fst_pair. eassumption.
+    + (* T_IntroDom *) exists (elab_tree (de_tree ent)); split; [assumption | apply DE_Refl].
+  - (* snd (v1, v2) *)
+    inversion HT; subst.
+    match goal with
+    | [ H : has_type _ _ _ (tPair _ _ ) _ |- _ ] => inversion H; subst
+    end.
+    + (* T_Pair *) eapply preservation_rebuild_snd_pair; eassumption.
+    + (* T_IntroDom *)
+      exists (tEq tBool (tApp (de_constraint ent) e1) tTrue).
+      split; [assumption | ].
+      cbn.
+      replace (subst "_args"%string (tFst (tPair e1 e')) (de_constraint ent)) with (de_constraint ent).
+      * apply DE_Eq.
+        -- apply DE_Refl.
+        -- apply DE_App.
+           ++ apply DE_Refl.
+           ++ apply DE_FstPair. assumption.
+        -- apply DE_Refl.
+      * symmetry. apply subst_not_free.
+        eapply closed_domain_type_ent; eauto.
+  - (* eq_elim refl *)
+    inversion HT; subst.
+    exists (tApp P e0). split.
+    + assumption.
+    + apply DE_App; [apply DE_Refl | ].
+      eapply DE_Trans with (U := w).
+      * exact H1.
+      * apply DE_Sym. exact H0.
+Qed.
 
 Lemma preservation_arithmetic_redexes :
   forall Delta e e' T,
