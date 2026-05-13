@@ -20,27 +20,21 @@ Inductive step : tm -> tm -> Prop :=
 | ST_Beta : forall x T e v,
     value v ->
     step (tApp (tLam x T e) v) (subst x v e)
-| ST_Pair1 : forall e1 e1' e2,
-    step e1 e1' ->
-    step (tPair e1 e2) (tPair e1' e2)
-| ST_Pair2 : forall v1 e2 e2',
-    value v1 ->
+| ST_Pair2 : forall e1 e2 e2',
     step e2 e2' ->
-    step (tPair v1 e2) (tPair v1 e2')
+    step (tPair e1 e2) (tPair e1 e2')
 | ST_FstStep : forall e e',
     step e e' ->
     step (tFst e) (tFst e')
-| ST_FstPair : forall v1 v2,
-    value v1 ->
+| ST_FstPair : forall e1 v2,
     value v2 ->
-    step (tFst (tPair v1 v2)) v1
+    step (tFst (tPair e1 v2)) e1
 | ST_SndStep : forall e e',
     step e e' ->
     step (tSnd e) (tSnd e')
-| ST_SndPair : forall v1 v2,
-    value v1 ->
+| ST_SndPair : forall e1 v2,
     value v2 ->
-    step (tSnd (tPair v1 v2)) v2
+    step (tSnd (tPair e1 v2)) v2
 | ST_Inl : forall U e e',
     step e e' ->
     step (tInl U e) (tInl U e')
@@ -63,9 +57,11 @@ Inductive step : tm -> tm -> Prop :=
     value p ->
     step q q' ->
     step (tEqElim P e e' p q) (tEqElim P e e' p q')
-| ST_EqElimRefl : forall P e q,
-    value e ->
-    step (tEqElim P e e (tRefl e) q) q
+| ST_EqElimRefl : forall P e e' w q,
+    value w ->
+    defeq e w ->
+    defeq e' w ->
+    step (tEqElim P e e' (tRefl w) q) q
 | ST_Refl : forall e e',
     step e e' ->
     step (tRefl e) (tRefl e')

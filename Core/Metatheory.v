@@ -34,19 +34,17 @@ Proof.
         subst. eauto with core.
       * destruct H0 as [e2' Hstep]. eauto with core.
     + destruct H as [e1' Hstep]. eauto with core.
-  - destruct (IHHT2 eq_refl eq_refl) as [Hv1 | [e1' Hstep1]].
-    + destruct (IHHT3 eq_refl eq_refl) as [Hv2 | [e2' Hstep2]].
-      * left. constructor; assumption.
-      * right. exists (tPair e1 e2'). constructor; assumption.
-    + right. exists (tPair e1' e2). constructor; assumption.
+  - destruct (IHHT3 eq_refl eq_refl) as [Hv2 | [e2' Hstep2]].
+    + left. constructor. assumption.
+    + right. exists (tPair e1 e2'). constructor. assumption.
   - right. destruct IHHT; auto.
     + destruct (canonical_sigma Delta [] e x T U HT H)
-        as [v1 [v2 [Heq [Hv1 Hv2]]]].
+      as [v1 [v2 [Heq Hv2]]].
       subst. eauto with core.
     + destruct H as [e' Hstep]. eauto with core.
   - right. destruct IHHT; auto.
     + destruct (canonical_sigma Delta [] e x T U HT H)
-        as [v1 [v2 [Heq [Hv1 Hv2]]]].
+      as [v1 [v2 [Heq Hv2]]].
       subst. eauto with core.
     + destruct H as [e' Hstep]. eauto with core.
   - destruct (IHHT2 eq_refl eq_refl) as [Hv | [e' Hstep]].
@@ -69,17 +67,14 @@ Proof.
     + destruct (IHHT3 eq_refl eq_refl) as [Hvq | [q' Hstepq]].
       * destruct (canonical_eq_proof Delta [] p T e e' HT2 Hvp)
           as [w [Hp [He [He' Hvw]]]].
-        subst. exists q. constructor. assumption.
+        subst. exists q. eapply ST_EqElimRefl; eauto.
       * exists (tEqElim P e e' p q'). constructor; assumption.
     + exists (tEqElim P e e' p' q). constructor. assumption.
   - left. unfold domain_type. constructor.
-  - destruct (IHHT2 eq_refl eq_refl) as [HvArgs | [args' HstepArgs]].
-    + destruct (IHHT3 eq_refl eq_refl) as [HvProof | [proof' HstepProof]].
-      * left. unfold intro_dom. constructor; assumption.
-      * right. exists (intro_dom args proof').
-        unfold intro_dom. constructor; assumption.
-    + right. exists (intro_dom args' proof).
-      unfold intro_dom. constructor; assumption.
+  - destruct (IHHT3 eq_refl eq_refl) as [HvProof | [proof' HstepProof]].
+    + left. unfold intro_dom. constructor. assumption.
+    + right. exists (intro_dom args proof').
+      unfold intro_dom. constructor. assumption.
   - right.
     destruct (IHHT1 eq_refl eq_refl) as [Hv1 | [e1' Hstep1]].
     + destruct (IHHT2 eq_refl eq_refl) as [Hv2 | [e2' Hstep2]].

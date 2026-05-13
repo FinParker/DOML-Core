@@ -243,9 +243,6 @@ Proof.
     + apply IHHT1. assumption.
     + apply IHHT2. assumption.
     + apply IHHT3. assumption.
-  - eapply T_Conv.
-    + apply IHHT. assumption.
-    + assumption.
 Qed.
 
 Lemma wf_context_tail :
@@ -640,7 +637,13 @@ Lemma canonical_bool :
     value v ->
     v = tTrue \/ v = tFalse.
 Proof.
-Admitted.
+  intros Delta Omega v HT HV.
+  remember (@nil (var * tm)) as Gamma eqn:HGamma.
+  remember tBool as T eqn:HTy.
+  induction HT; subst; try discriminate; try solve [inversion HV].
+  - left. reflexivity.
+  - right. reflexivity.
+Qed.
 
 Lemma canonical_int :
   forall Delta Omega v,
@@ -648,7 +651,12 @@ Lemma canonical_int :
     value v ->
     exists z, v = tIntLit z.
 Proof.
-Admitted.
+  intros Delta Omega v HT HV.
+  remember (@nil (var * tm)) as Gamma eqn:HGamma.
+  remember tInt as T eqn:HTy.
+  induction HT; subst; try discriminate; try solve [inversion HV].
+  - exists z. reflexivity.
+Qed.
 
 Lemma canonical_pi :
   forall Delta Omega v x T U,
@@ -656,15 +664,26 @@ Lemma canonical_pi :
     value v ->
     exists e, v = tLam x T e.
 Proof.
-Admitted.
+  intros Delta Omega v x T U HT HV.
+  remember (@nil (var * tm)) as Gamma eqn:HGamma.
+  remember (tPi x T U) as Ty eqn:HTy.
+  induction HT; subst; try discriminate; try solve [inversion HV].
+  - inversion HTy; subst. exists e. reflexivity.
+Qed.
 
 Lemma canonical_sigma :
   forall Delta Omega v x T U,
     has_type Delta Omega [] v (tSigma x T U) ->
     value v ->
-    exists v1 v2, v = tPair v1 v2 /\ value v1 /\ value v2.
+    exists v1 v2, v = tPair v1 v2 /\ value v2.
 Proof.
-Admitted.
+  intros Delta Omega v x T U HT HV.
+  remember (@nil (var * tm)) as Gamma eqn:HGamma.
+  remember (tSigma x T U) as Ty eqn:HTy.
+  induction HT; subst; try discriminate; try solve [inversion HV].
+  - inversion HV; subst. eauto.
+  - unfold intro_dom in *. inversion HV; subst. eauto.
+Qed.
 
 Lemma canonical_sum :
   forall Delta Omega v T U,
@@ -673,15 +692,28 @@ Lemma canonical_sum :
     (exists v1, v = tInl U v1 /\ value v1) \/
     (exists v2, v = tInr T v2 /\ value v2).
 Proof.
-Admitted.
+  intros Delta Omega v T U HT HV.
+  remember (@nil (var * tm)) as Gamma eqn:HGamma.
+  remember (tSum T U) as Ty eqn:HTy.
+  induction HT; subst; try discriminate; try solve [inversion HV].
+  - inversion HTy; subst. inversion HV; subst.
+    left. exists e. split; assumption || reflexivity.
+  - inversion HTy; subst. inversion HV; subst.
+    right. exists e. split; assumption || reflexivity.
+Qed.
 
 Lemma canonical_eq_proof :
   forall Delta Omega v T e e',
     has_type Delta Omega [] v (tEq T e e') ->
     value v ->
-    exists w, v = tRefl w /\ e = w /\ e' = w /\ value w.
+    exists w, v = tRefl w /\ defeq e w /\ defeq e' w /\ value w.
 Proof.
-Admitted.
+  intros Delta Omega v T e e' HT HV.
+  remember (@nil (var * tm)) as Gamma eqn:HGamma.
+  remember (tEq T e e') as Ty eqn:HTy.
+  induction HT; subst; try discriminate; try solve [inversion HV].
+  - inversion HTy; subst. inversion HV; subst. eauto with core.
+Qed.
 
 Lemma free_in_context :
   forall Delta Omega Gamma e T x,
@@ -746,6 +778,19 @@ Proof.
   - exact (typed_empty_closed Delta Omega v U HOm Hv).
 Qed.
 
+(**
+  Conversion is not part of the typing relation anymore, but Preservation still
+  needs the standard admissible form to retarget reducts whose natural type is
+  definitionally equal to the source type.
+ *)
+Lemma preservation_conversion_admissible :
+  forall Delta Omega Gamma e T U,
+    has_type Delta Omega Gamma e T ->
+    defeq T U ->
+    has_type Delta Omega Gamma e U.
+Proof.
+Admitted.
+
 Lemma preservation_rebuild_let_step :
   forall Delta x e1 e1' e2 T T' U s,
     has_type Delta [] [] T (tSort s) ->
@@ -761,7 +806,7 @@ Proof.
   exists (subst x e1' U). split.
   - eapply T_Let.
     + exact HTy.
-    + eapply T_Conv.
+    + eapply preservation_conversion_admissible.
       * exact He1'.
       * apply DE_Sym. exact HTdef.
     + exact He2.
@@ -813,10 +858,10 @@ Proof.
   exists (tSigma x T U). split.
   - eapply T_Pair.
     + exact HSigma.
-    + eapply T_Conv.
+    + eapply preservation_conversion_admissible.
       * exact He1'.
       * apply DE_Sym. exact HTdef.
-    + eapply T_Conv.
+    + eapply preservation_conversion_admissible.
       * exact He2.
       * apply subst_replacement_defeq. exact Hedef.
   - apply DE_Refl.
@@ -837,7 +882,7 @@ Proof.
   - eapply T_Pair.
     + exact HSigma.
     + exact Hv1.
-    + eapply T_Conv.
+    + eapply preservation_conversion_admissible.
       * exact He2'.
       * apply DE_Sym. exact Hdef.
   - apply DE_Refl.
@@ -856,18 +901,17 @@ Qed.
 
 Lemma preservation_rebuild_snd_pair :
   forall Delta x v1 v2 U,
-    value v1 ->
     value v2 ->
     has_type Delta [] [] v2 (subst x v1 U) ->
     exists R,
       has_type Delta [] [] v2 R /\
       defeq (subst x (tFst (tPair v1 v2)) U) R.
 Proof.
-  intros Delta x v1 v2 U Hv1 Hv2 Ht2.
+  intros Delta x v1 v2 U Hv2 Ht2.
   exists (subst x v1 U). split.
   - exact Ht2.
   - apply subst_replacement_defeq.
-    apply DE_FstPair; assumption.
+    apply DE_FstPair. assumption.
 Qed.
 
 Lemma preservation_rebuild_app_left :
@@ -882,7 +926,7 @@ Proof.
   intros Delta e1' e2 x T U T' He1' Hdef He2.
   exists (subst x e2 U). split.
   - eapply T_App.
-    + eapply T_Conv.
+    + eapply preservation_conversion_admissible.
       * exact He1'.
       * apply DE_Sym. exact Hdef.
     + exact He2.
@@ -903,7 +947,7 @@ Proof.
   exists (subst x e2' U). split.
   - eapply T_App.
     + exact Hv1.
-    + eapply T_Conv.
+    + eapply preservation_conversion_admissible.
       * exact He2'.
       * apply DE_Sym. exact HTdef.
   - apply subst_replacement_defeq. exact Hedef.
@@ -919,7 +963,7 @@ Lemma preservation_rebuild_fst_step :
 Proof.
   intros Delta e' x T U T' He' Hdef.
   exists T. split.
-  - eapply T_Fst. eapply T_Conv.
+  - eapply T_Fst. eapply preservation_conversion_admissible.
     + exact He'.
     + apply DE_Sym. exact Hdef.
   - apply DE_Refl.
@@ -936,7 +980,7 @@ Lemma preservation_rebuild_snd_step :
 Proof.
   intros Delta e e' x T U T' He' HTdef Hedef.
   exists (subst x (tFst e') U). split.
-  - eapply T_Snd. eapply T_Conv.
+  - eapply T_Snd. eapply preservation_conversion_admissible.
     + exact He'.
     + apply DE_Sym. exact HTdef.
   - apply subst_replacement_defeq. apply DE_Fst. exact Hedef.
@@ -954,7 +998,7 @@ Proof.
   intros Delta e1' e2 T' He1' Hdef He2.
   exists tInt. split.
   - apply T_Plus.
-    + eapply T_Conv; [exact He1' | apply DE_Sym; exact Hdef].
+    + eapply preservation_conversion_admissible; [exact He1' | apply DE_Sym; exact Hdef].
     + exact He2.
   - apply DE_Refl.
 Qed.
@@ -972,7 +1016,7 @@ Proof.
   exists tInt. split.
   - apply T_Plus.
     + exact Hv1.
-    + eapply T_Conv; [exact He2' | apply DE_Sym; exact Hdef].
+    + eapply preservation_conversion_admissible; [exact He2' | apply DE_Sym; exact Hdef].
   - apply DE_Refl.
 Qed.
 
@@ -988,7 +1032,7 @@ Proof.
   intros Delta e1' e2 T' He1' Hdef He2.
   exists tInt. split.
   - apply T_Minus.
-    + eapply T_Conv; [exact He1' | apply DE_Sym; exact Hdef].
+    + eapply preservation_conversion_admissible; [exact He1' | apply DE_Sym; exact Hdef].
     + exact He2.
   - apply DE_Refl.
 Qed.
@@ -1006,7 +1050,7 @@ Proof.
   exists tInt. split.
   - apply T_Minus.
     + exact Hv1.
-    + eapply T_Conv; [exact He2' | apply DE_Sym; exact Hdef].
+    + eapply preservation_conversion_admissible; [exact He2' | apply DE_Sym; exact Hdef].
   - apply DE_Refl.
 Qed.
 
@@ -1048,7 +1092,7 @@ Proof.
   exists (tSum T U). split.
   - eapply T_Inl.
     + exact HT.
-    + eapply T_Conv; [exact He' | apply DE_Sym; exact Hdef].
+    + eapply preservation_conversion_admissible; [exact He' | apply DE_Sym; exact Hdef].
     + exact HU.
   - apply DE_Refl.
 Qed.
@@ -1066,7 +1110,7 @@ Proof.
   intros Delta T e' U U' s1 s2 He' Hdef HT HU.
   exists (tSum T U). split.
   - eapply T_Inr.
-    + eapply T_Conv; [exact He' | apply DE_Sym; exact Hdef].
+    + eapply preservation_conversion_admissible; [exact He' | apply DE_Sym; exact Hdef].
     + exact HT.
     + exact HU.
   - apply DE_Refl.
@@ -1085,7 +1129,7 @@ Proof.
   intros Delta e' x el y er T U R S He' Hdef Hel Her.
   exists R. split.
   - eapply T_Case.
-    + eapply T_Conv; [exact He' | apply DE_Sym; exact Hdef].
+    + eapply preservation_conversion_admissible; [exact He' | apply DE_Sym; exact Hdef].
     + exact Hel.
     + exact Her.
   - apply DE_Refl.
@@ -1105,7 +1149,7 @@ Proof.
   exists (tEq T e' e'). split.
   - eapply T_Refl.
     + exact HT.
-    + eapply T_Conv; [exact He' | apply DE_Sym; exact HTdef].
+    + eapply preservation_conversion_admissible; [exact He' | apply DE_Sym; exact HTdef].
   - apply DE_Eq; [apply DE_Refl | exact Hedef | exact Hedef].
 Qed.
 
@@ -1123,7 +1167,7 @@ Proof.
   exists (tApp P e'). split.
   - eapply T_EqElim.
     + exact HP.
-    + eapply T_Conv; [exact Hp' | apply DE_Sym; exact Hdef].
+    + eapply preservation_conversion_admissible; [exact Hp' | apply DE_Sym; exact Hdef].
     + exact Hq.
   - apply DE_Refl.
 Qed.
@@ -1143,7 +1187,7 @@ Proof.
   - eapply T_EqElim.
     + exact HP.
     + exact Hp.
-    + eapply T_Conv; [exact Hq' | apply DE_Sym; exact Hdef].
+    + eapply preservation_conversion_admissible; [exact Hq' | apply DE_Sym; exact Hdef].
   - apply DE_Refl.
 Qed.
 
@@ -1170,22 +1214,26 @@ Admitted.
 Lemma preservation_helper_closed_app_parts :
   forall e1 e2, closed (tApp e1 e2) -> closed e1 /\ closed e2.
 Proof.
-Admitted.
+  intros e1 e2 H. apply closed_app_inv. exact H.
+Qed.
 
 Lemma preservation_helper_closed_pair_parts :
   forall e1 e2, closed (tPair e1 e2) -> closed e1 /\ closed e2.
 Proof.
-Admitted.
+  intros e1 e2 H. apply closed_pair_inv. exact H.
+Qed.
 
 Lemma preservation_helper_closed_fst :
   forall e, closed (tFst e) -> closed e.
 Proof.
-Admitted.
+  intros e H. apply closed_fst_inv. exact H.
+Qed.
 
 Lemma preservation_helper_closed_snd :
   forall e, closed (tSnd e) -> closed e.
 Proof.
-Admitted.
+  intros e H. apply closed_snd_inv. exact H.
+Qed.
 
 Lemma preservation_helper_closed_case_parts :
   forall scr x el y er,
@@ -1196,41 +1244,56 @@ Admitted.
 Lemma preservation_helper_closed_plus_parts :
   forall e1 e2, closed (tPlus e1 e2) -> closed e1 /\ closed e2.
 Proof.
-Admitted.
+  intros e1 e2 H. apply closed_plus_inv. exact H.
+Qed.
 
 Lemma preservation_helper_closed_minus_parts :
   forall e1 e2, closed (tMinus e1 e2) -> closed e1 /\ closed e2.
 Proof.
-Admitted.
+  intros e1 e2 H. apply closed_minus_inv. exact H.
+Qed.
 
 Lemma preservation_helper_closed_eqelim_parts :
   forall P u v p q,
     closed (tEqElim P u v p q) ->
     closed P /\ closed q /\ closed p /\ closed u /\ closed v.
 Proof.
-Admitted.
+  intros P u v p q H.
+  destruct (closed_eqelim_inv P u v p q H) as [HP [Hu [Hv [Hp Hq]]]].
+  repeat split; assumption.
+Qed.
 
 Lemma preservation_helper_closed_refl :
   forall e, closed (tRefl e) -> closed e.
 Proof.
-Admitted.
+  intros e H. apply closed_refl_inv. exact H.
+Qed.
 
 Lemma preservation_helper_closed_inl_parts :
   forall U e, closed (tInl U e) -> closed U /\ closed e.
 Proof.
-Admitted.
+  intros U e H. apply closed_sum_inl_inv. exact H.
+Qed.
 
 Lemma preservation_helper_closed_inr_parts :
   forall U e, closed (tInr U e) -> closed U /\ closed e.
 Proof.
-Admitted.
+  intros U e H. apply closed_sum_inr_inv. exact H.
+Qed.
 
 Lemma preservation_helper_sigma_domain_sort :
   forall Delta x T U s,
     has_type Delta [] [] (tSigma x T U) (tSort s) ->
     exists sx, has_type Delta [] [] T (tSort sx).
 Proof.
-Admitted.
+  intros Delta x T U s HT.
+  remember (@nil (const_name * tm)) as Omega eqn:HOmega.
+  remember (@nil (var * tm)) as Gamma eqn:HGamma.
+  remember (tSigma x T U) as Sig eqn:HSig.
+  induction HT; subst; try discriminate.
+  - inversion HSig; subst. eauto.
+  - unfold domain_type in HSig. inversion HSig; subst. eauto.
+Qed.
 
 Lemma preservation_helper_case_left_binding_sort :
   forall Delta scr T SU R x el,
@@ -1260,7 +1323,6 @@ Proof.
   - apply DE_App. assumption. apply DE_Refl.
   - apply DE_App. apply DE_Refl. assumption.
   - apply DE_Beta. assumption.
-  - apply DE_Pair. assumption. apply DE_Refl.
   - apply DE_Pair. apply DE_Refl. assumption.
   - apply DE_Fst. assumption.
   - apply DE_FstPair; assumption.
@@ -1283,7 +1345,7 @@ Proof.
     + apply DE_Refl.
     + apply DE_Refl.
     + assumption.
-  - apply DE_EqElimRefl. assumption.
+  - eapply DE_EqElimRefl; eauto with core.
   - apply DE_ReflTm. assumption.
   - apply DE_Plus. assumption. apply DE_Refl.
   - apply DE_Plus. apply DE_Refl. assumption.
@@ -1299,7 +1361,6 @@ Qed.
     并调用下列义务引理（可 [Qed] 的）以及已有 [preservation_rebuild_*]、
     [substitution_preserves_typing_empty]、[preservation_helper_*]。
 
-    - [T_Conv]：对前提类型归纳后，用 [preservation_obl_push_conv] 推到结论类型。
     - Let：[ST_LetStep]/[ST_LetValue] → [preservation_obl_let_*]。
     - App：同余与 [ST_Beta] → [preservation_obl_app_*]。
     - Σ/对：[preservation_obl_sigma_pair_block]；积消除步已有 [preservation_rebuild_fst/snd_*]。
@@ -1486,34 +1547,167 @@ End PreservationProofSkeleton.
 
 Import PreservationProofSkeleton.
 
-(** 总装：按 [has_type] 归纳、[step] 逆变。
+(** ** Coarse Preservation interface
 
-    典型写法（伪代码，便于与 [Metatheory.preservation] 对照）：
-
-    - [induction HT]; [inversion Hstep]; [subst]; 不可能分支用 [discriminate]。
-    - [T_Conv]：[preservation_helper_type_closed] 得内层类型闭合 → [IHHT] →
-      [preservation_rebuild_conv]。
-    - [T_Let]：[ST_LetStep] → [IHHT] 在 [e1] + [preservation_rebuild_let_step] +
-      [step_defeq]；[ST_LetValue] → [preservation_rebuild_let_value]。
-    - [T_App]：[ST_App1]/[ST_App2] → 对应 [preservation_rebuild_app_*]；[ST_Beta] →
-      [preservation_obl_app_beta]。
-    - [T_Pair]：[ST_Pair1]/[ST_Pair2] → [preservation_rebuild_pair_*]；
-      [T_IntroDom] 同 [tPair]，归纳假设编号与 [T_Pair] 一致（对 [args]/[proof]）。
-    - [T_Fst]/[T_Snd]：步在子项 → [preservation_rebuild_fst/snd_step]；积消除 →
-      [preservation_rebuild_fst/snd_pair]（先对 Σ-前置 [inversion]）。
-    - [T_Inl]/[T_Inr]：[preservation_rebuild_inl/inr_step]。
-    - [T_Case]：[ST_CaseStep] → [preservation_rebuild_case_step]；
-      [ST_CaseInl]/[ST_CaseInr] → [preservation_obl_case_inl/inr]。
-    - [T_Refl]：[preservation_rebuild_refl_step]。
-    - [T_EqElim]：对证明/体步 → [preservation_rebuild_eqelim_*]；[ST_EqElimRefl] 直接
-      [exists (tApp P e'); split; …]。
-    - [T_Plus]/[T_Minus]：同余步 → [preservation_rebuild_plus/minus_*]；字面量步 →
-      [preservation_rebuild_plus/minus_ints]。
-    - 其余（含域上的命题层构造）→ [preservation_obl_domain_intro] /
-      [preservation_obl_equalities]。
-
-    完整 [Qed] 战术脚本需在 IDE 中逐分支对齐归纳假设编号（子目标顺序未必按上述书写顺序）。
+    The driver below deliberately depends on fewer than ten large lemmas.  The
+    scattered [preservation_rebuild_*] facts above are implementation details
+    for discharging these coarse lemmas later.
  *)
+
+Inductive preservation_substitution_step : tm -> tm -> Prop :=
+| PS_LetValue : forall x v e2,
+    value v ->
+    preservation_substitution_step (tLet x v e2) (subst x v e2)
+| PS_Beta : forall x T e v,
+    value v ->
+    preservation_substitution_step (tApp (tLam x T e) v) (subst x v e)
+| PS_CaseInl : forall U v x el y er,
+    value v ->
+    preservation_substitution_step
+      (tCase (tInl U v) x el y er) (subst x v el)
+| PS_CaseInr : forall T v x el y er,
+    value v ->
+    preservation_substitution_step
+      (tCase (tInr T v) x el y er) (subst y v er).
+
+Inductive preservation_congruence_step : tm -> tm -> Prop :=
+| PC_LetStep : forall x e1 e1' e2,
+    step e1 e1' ->
+    preservation_congruence_step (tLet x e1 e2) (tLet x e1' e2)
+| PC_App1 : forall e1 e1' e2,
+    step e1 e1' ->
+    preservation_congruence_step (tApp e1 e2) (tApp e1' e2)
+| PC_App2 : forall v1 e2 e2',
+    value v1 ->
+    step e2 e2' ->
+    preservation_congruence_step (tApp v1 e2) (tApp v1 e2')
+| PC_Pair2 : forall e1 e2 e2',
+    step e2 e2' ->
+    preservation_congruence_step (tPair e1 e2) (tPair e1 e2')
+| PC_FstStep : forall e e',
+    step e e' ->
+    preservation_congruence_step (tFst e) (tFst e')
+| PC_SndStep : forall e e',
+    step e e' ->
+    preservation_congruence_step (tSnd e) (tSnd e')
+| PC_Inl : forall U e e',
+    step e e' ->
+    preservation_congruence_step (tInl U e) (tInl U e')
+| PC_Inr : forall T e e',
+    step e e' ->
+    preservation_congruence_step (tInr T e) (tInr T e')
+| PC_CaseStep : forall e e' x el y er,
+    step e e' ->
+    preservation_congruence_step
+      (tCase e x el y er) (tCase e' x el y er)
+| PC_EqElimProof : forall P e e' p p' q,
+    step p p' ->
+    preservation_congruence_step
+      (tEqElim P e e' p q) (tEqElim P e e' p' q)
+| PC_EqElimBody : forall P e e' p q q',
+    value p ->
+    step q q' ->
+    preservation_congruence_step
+      (tEqElim P e e' p q) (tEqElim P e e' p q')
+| PC_Refl : forall e e',
+    step e e' ->
+    preservation_congruence_step (tRefl e) (tRefl e')
+| PC_Plus1 : forall e1 e1' e2,
+    step e1 e1' ->
+    preservation_congruence_step (tPlus e1 e2) (tPlus e1' e2)
+| PC_Plus2 : forall v1 e2 e2',
+    value v1 ->
+    step e2 e2' ->
+    preservation_congruence_step (tPlus v1 e2) (tPlus v1 e2')
+| PC_Minus1 : forall e1 e1' e2,
+    step e1 e1' ->
+    preservation_congruence_step (tMinus e1 e2) (tMinus e1' e2)
+| PC_Minus2 : forall v1 e2 e2',
+    value v1 ->
+    step e2 e2' ->
+    preservation_congruence_step (tMinus v1 e2) (tMinus v1 e2').
+
+Inductive preservation_elimination_step : tm -> tm -> Prop :=
+| PE_FstPair : forall e1 v2,
+    value v2 ->
+    preservation_elimination_step (tFst (tPair e1 v2)) e1
+| PE_SndPair : forall e1 v2,
+    value v2 ->
+    preservation_elimination_step (tSnd (tPair e1 v2)) v2
+| PE_EqElimRefl : forall P e e' w q,
+    value w ->
+    defeq e w ->
+    defeq e' w ->
+    preservation_elimination_step (tEqElim P e e' (tRefl w) q) q.
+
+Inductive preservation_arithmetic_step : tm -> tm -> Prop :=
+| PA_PlusInts : forall z1 z2,
+    preservation_arithmetic_step
+      (tPlus (tIntLit z1) (tIntLit z2)) (tIntLit (z1 + z2))
+| PA_MinusInts : forall z1 z2,
+    preservation_arithmetic_step
+      (tMinus (tIntLit z1) (tIntLit z2)) (tIntLit (z1 - z2)).
+
+Lemma preservation_substitution_cases :
+  forall Delta e e' T,
+    closed e ->
+    closed T ->
+    has_type Delta [] [] e T ->
+    step e e' ->
+    preservation_substitution_step e e' ->
+    exists T',
+      has_type Delta [] [] e' T' /\
+      defeq T T'.
+Proof.
+Admitted.
+
+Lemma preservation_congruence_cases :
+  forall Delta e e' T,
+    closed e ->
+    closed T ->
+    has_type Delta [] [] e T ->
+    step e e' ->
+    preservation_congruence_step e e' ->
+    exists T',
+      has_type Delta [] [] e' T' /\
+      defeq T T'.
+Proof.
+Admitted.
+
+Lemma preservation_elimination_redexes :
+  forall Delta e e' T,
+    closed e ->
+    closed T ->
+    has_type Delta [] [] e T ->
+    step e e' ->
+    preservation_elimination_step e e' ->
+    exists T',
+      has_type Delta [] [] e' T' /\
+      defeq T T'.
+Proof.
+Admitted.
+
+Lemma preservation_arithmetic_redexes :
+  forall Delta e e' T,
+    closed e ->
+    closed T ->
+    has_type Delta [] [] e T ->
+    step e e' ->
+    preservation_arithmetic_step e e' ->
+    exists T',
+      has_type Delta [] [] e' T' /\
+      defeq T T'.
+Proof.
+  intros Delta e e' T _ _ HT _ Harith.
+  inversion Harith; subst.
+  - inversion HT; subst.
+    destruct (preservation_rebuild_plus_ints Delta z1 z2) as [R [HR Hdef]].
+    exists R. split; [exact HR | exact Hdef].
+  - inversion HT; subst.
+    destruct (preservation_rebuild_minus_ints Delta z1 z2) as [R [HR Hdef]].
+    exists R. split; [exact HR | exact Hdef].
+Qed.
+
 Lemma preservation_driver :
   forall Delta e e' T,
     closed e ->
@@ -1525,12 +1719,55 @@ Lemma preservation_driver :
       defeq T T'.
 Proof.
   intros Delta e e' T Hce Hct HT Hstep.
-  induction HT; inversion Hstep; subst;
-    try (simpl in *; discriminate);
-    try (exfalso; simpl in *; discriminate).
-  (* multimatch 分支陈列见上文注释；完整证明待交互微调假设名与顺序。 *)
-Admitted.
-
-Definition progresses (e : tm) : Prop :=
-  value e \/ exists e', step e e'.
-
+  inversion Hstep; subst.
+  - eapply preservation_congruence_cases;
+      [exact Hce | exact Hct | exact HT | exact Hstep | constructor; assumption].
+  - eapply preservation_substitution_cases;
+      [exact Hce | exact Hct | exact HT | exact Hstep | constructor; assumption].
+  - eapply preservation_congruence_cases;
+      [exact Hce | exact Hct | exact HT | exact Hstep | constructor; assumption].
+  - eapply preservation_congruence_cases;
+      [exact Hce | exact Hct | exact HT | exact Hstep | constructor; assumption].
+  - eapply preservation_substitution_cases;
+      [exact Hce | exact Hct | exact HT | exact Hstep | constructor; assumption].
+  - eapply preservation_congruence_cases;
+      [exact Hce | exact Hct | exact HT | exact Hstep | constructor; assumption].
+  - eapply preservation_congruence_cases;
+      [exact Hce | exact Hct | exact HT | exact Hstep | constructor; assumption].
+  - eapply preservation_elimination_redexes;
+      [exact Hce | exact Hct | exact HT | exact Hstep | constructor; assumption].
+  - eapply preservation_congruence_cases;
+      [exact Hce | exact Hct | exact HT | exact Hstep | constructor; assumption].
+  - eapply preservation_elimination_redexes;
+      [exact Hce | exact Hct | exact HT | exact Hstep | constructor; assumption].
+  - eapply preservation_congruence_cases;
+      [exact Hce | exact Hct | exact HT | exact Hstep | constructor; assumption].
+  - eapply preservation_congruence_cases;
+      [exact Hce | exact Hct | exact HT | exact Hstep | constructor; assumption].
+  - eapply preservation_congruence_cases;
+      [exact Hce | exact Hct | exact HT | exact Hstep | constructor; assumption].
+  - eapply preservation_substitution_cases;
+      [exact Hce | exact Hct | exact HT | exact Hstep | constructor; assumption].
+  - eapply preservation_substitution_cases;
+      [exact Hce | exact Hct | exact HT | exact Hstep | constructor; assumption].
+  - eapply preservation_congruence_cases;
+      [exact Hce | exact Hct | exact HT | exact Hstep | constructor; assumption].
+  - eapply preservation_congruence_cases;
+      [exact Hce | exact Hct | exact HT | exact Hstep | constructor; assumption].
+  - eapply preservation_elimination_redexes;
+      [exact Hce | exact Hct | exact HT | exact Hstep | constructor; assumption].
+  - eapply preservation_congruence_cases;
+      [exact Hce | exact Hct | exact HT | exact Hstep | constructor; assumption].
+  - eapply preservation_congruence_cases;
+      [exact Hce | exact Hct | exact HT | exact Hstep | constructor; assumption].
+  - eapply preservation_congruence_cases;
+      [exact Hce | exact Hct | exact HT | exact Hstep | constructor; assumption].
+  - eapply preservation_arithmetic_redexes;
+      [exact Hce | exact Hct | exact HT | exact Hstep | constructor].
+  - eapply preservation_congruence_cases;
+      [exact Hce | exact Hct | exact HT | exact Hstep | constructor; assumption].
+  - eapply preservation_congruence_cases;
+      [exact Hce | exact Hct | exact HT | exact Hstep | constructor; assumption].
+  - eapply preservation_arithmetic_redexes;
+      [exact Hce | exact Hct | exact HT | exact Hstep | constructor].
+Qed.

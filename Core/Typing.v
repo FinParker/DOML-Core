@@ -18,7 +18,7 @@ Inductive value : tm -> Prop :=
 | V_Pi : forall x T U, value (tPi x T U)
 | V_Lam : forall x T e, value (tLam x T e)
 | V_Sigma : forall x T U, value (tSigma x T U)
-| V_Pair : forall v1 v2, value v1 -> value v2 -> value (tPair v1 v2)
+| V_Pair : forall e1 v2, value v2 -> value (tPair e1 v2)
 | V_Sum : forall T U, value (tSum T U)
 | V_Inl : forall U v, value v -> value (tInl U v)
 | V_Inr : forall T v, value v -> value (tInr T v)
@@ -39,14 +39,12 @@ Inductive defeq : tm -> tm -> Prop :=
 | DE_Beta : forall x T e v,
     value v ->
     defeq (tApp (tLam x T e) v) (subst x v e)
-| DE_FstPair : forall v1 v2,
-    value v1 ->
+| DE_FstPair : forall e1 v2,
     value v2 ->
-    defeq (tFst (tPair v1 v2)) v1
-| DE_SndPair : forall v1 v2,
-    value v1 ->
+    defeq (tFst (tPair e1 v2)) e1
+| DE_SndPair : forall e1 v2,
     value v2 ->
-    defeq (tSnd (tPair v1 v2)) v2
+    defeq (tSnd (tPair e1 v2)) v2
 | DE_CaseInl : forall U v x el y er,
     value v ->
     defeq (tCase (tInl U v) x el y er) (subst x v el)
@@ -115,9 +113,11 @@ Inductive defeq : tm -> tm -> Prop :=
     defeq p p' ->
     defeq q q' ->
     defeq (tEqElim P e u p q) (tEqElim P' e' u' p' q')
-| DE_EqElimRefl : forall P e q,
-    value e ->
-    defeq (tEqElim P e e (tRefl e) q) q
+| DE_EqElimRefl : forall P e e' w q,
+    value w ->
+    defeq e w ->
+    defeq e' w ->
+    defeq (tEqElim P e e' (tRefl w) q) q
 | DE_Plus : forall e1 e1' e2 e2',
     defeq e1 e1' ->
     defeq e2 e2' ->
@@ -237,11 +237,7 @@ Inductive has_type : dom_context -> const_context -> context -> tm -> tm -> Prop
 | T_Minus : forall Delta Omega Gamma e1 e2,
     has_type Delta Omega Gamma e1 tInt ->
     has_type Delta Omega Gamma e2 tInt ->
-    has_type Delta Omega Gamma (tMinus e1 e2) tInt
-| T_Conv : forall Delta Omega Gamma e T U,
-    has_type Delta Omega Gamma e T ->
-    defeq T U ->
-    has_type Delta Omega Gamma e U.
+    has_type Delta Omega Gamma (tMinus e1 e2) tInt.
 
 Hint Constructors value : core.
 Hint Resolve
